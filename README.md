@@ -108,6 +108,21 @@ FIREBIRDREST_JWT_SECRET=reallyreallyreallyreallyverysafe1234 npm test
 Without `FIREBIRDREST_JWT_SECRET` the write tests are skipped. CI starts Firebird and
 FirebirdREST in Docker (see `.github/workflows/ci.yml`).
 
+## Releasing
+
+Publishing is done by GitHub Actions when a version tag is pushed, after the compatibility
+suite passes:
+
+```sh
+npm version 0.1.0        # updates package.json and creates the v0.1.0 tag
+git push --follow-tags
+```
+
+One-time setup: create an npm access token (npmjs.com → Access Tokens → Generate New Token →
+Granular, with publish rights on `firebirdrest-js`, bypassing 2FA for automation) and add it to
+the repository as the `NPM_TOKEN` secret (Settings → Secrets and variables → Actions). The
+package is published with provenance, so npm shows the source commit and workflow.
+
 ## License
 
 MIT.

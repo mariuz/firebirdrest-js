@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-23
+
 ### Added
 - `createClient(url, token?, options?)` with the supabase-js signature, built on
   `@supabase/postgrest-js`: `from()`, `rpc()`, `schema()`, `auth()`.

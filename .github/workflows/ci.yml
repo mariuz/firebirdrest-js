@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call: # run by release.yml before publishing
   schedule:
     - cron: "23 5 * * 1" # weekly: catch changes in FirebirdREST and postgrest-js
 
