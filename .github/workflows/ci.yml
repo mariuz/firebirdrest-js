@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 5 * * 1" # weekly: catch changes in FirebirdREST and postgrest-js
+
+jobs:
+  test:
+    name: test (Firebird ${{ matrix.firebird }}, FirebirdREST ${{ matrix.firebirdrest }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        firebird: ["3", "5"]
+        firebirdrest: ["latest"]
+    services:
+      firebird:
+        image: firebirdsql/firebird:${{ matrix.firebird }}
+        env:
+          FIREBIRD_ROOT_PASSWORD: masterkey
+          FIREBIRD_DATABASE: test.fdb
+        ports:
+          - 3050:3050
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Load the FirebirdREST example database
+        run: |
+          curl -sSfL -o bookstore.sql https://raw.githubusercontent.com/mariuz/firebirdrest/main/examples/bookstore.sql
+          for i in $(seq 1 30); do
+            docker exec ${{ job.services.firebird.id }} test -f /var/lib/firebird/data/test.fdb && break
+            sleep 2
+          done
+          sleep 3
+          docker cp bookstore.sql ${{ job.services.firebird.id }}:/tmp/bookstore.sql
+          docker exec ${{ job.services.firebird.id }} /opt/firebird/bin/isql \
+            -user SYSDBA -password masterkey localhost:/var/lib/firebird/data/test.fdb -i /tmp/bookstore.sql
+      - name: Start FirebirdREST
+        run: |
+          docker run -d --name firebirdrest --network host \
+            -e FBREST_DB_URI=authenticator:authenticator@localhost:3050/var/lib/firebird/data/test.fdb \
+            -e FBREST_DB_ANON_ROLE=web_anon \
+            -e FBREST_JWT_SECRET=reallyreallyreallyreallyverysafe1234 \
+            -e FBREST_DB_PLAN_ENABLED=true \
+            ghcr.io/mariuz/firebirdrest:${{ matrix.firebirdrest }}
+          for i in $(seq 1 30); do
+            curl -sf localhost:3000/ > /dev/null && break
+            sleep 1
+          done
+          curl -sf 'localhost:3000/books?select=id&limit=1'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Test
+        env:
+          FIREBIRDREST_URL: http://localhost:3000
+          FIREBIRDREST_JWT_SECRET: reallyreallyreallyreallyverysafe1234
+        run: npm test
+      - name: FirebirdREST log
+        if: failure()
+        run: docker logs firebirdrest
