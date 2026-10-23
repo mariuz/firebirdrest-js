@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         firebird: ["3", "5"]
-        firebirdrest: ["latest"]
+        firebirdrest: ["latest", "main"] # the released image, and a build of FirebirdREST's main branch
     services:
       firebird:
         image: firebirdsql/firebird:${{ matrix.firebird }}
@@ -41,6 +41,9 @@ jobs:
           docker cp bookstore.sql ${{ job.services.firebird.id }}:/tmp/bookstore.sql
           docker exec ${{ job.services.firebird.id }} /opt/firebird/bin/isql \
             -user SYSDBA -password masterkey localhost:/var/lib/firebird/data/test.fdb -i /tmp/bookstore.sql
+      - name: Build FirebirdREST from main
+        if: matrix.firebirdrest == 'main'
+        run: docker build -t ghcr.io/mariuz/firebirdrest:main https://github.com/mariuz/firebirdrest.git#main
       - name: Start FirebirdREST
         run: |
           docker run -d --name firebirdrest --network host \

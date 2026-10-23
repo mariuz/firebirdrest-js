@@ -27,10 +27,23 @@ const anon = createClient(url)
 const user = secret ? createClient(url, hs256({ role: 'web_user', sub: 'ana@example.com' }, secret)) : null
 const writes = user ? it : it.skip
 
+// The server's version, from the OpenAPI document: features newer than the
+// server are skipped, so the suite also runs against released versions.
+let serverVersion = 'dev'
 beforeAll(async () => {
   const res = await fetch(url + '/').catch(() => null)
   if (!res || !res.ok) throw new Error(`no FirebirdREST at ${url}; set FIREBIRDREST_URL`)
+  serverVersion = (await res.json()).info?.version ?? 'dev'
 })
+
+/** True when the server is at least version min ("0.3.0"), or a dev build. */
+function since(min: string): boolean {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(serverVersion)
+  if (!m) return true // "dev" or a pseudo-version: built from main
+  const [a, b, c] = m.slice(1).map(Number)
+  const [x, y, z] = min.split('.').map(Number)
+  return a !== x ? a > x : b !== y ? b > y : c >= z
+}
 
 describe('reads', () => {
   it('select with order and limit', async () => {
@@ -149,7 +162,8 @@ describe('reads', () => {
     expect(data).toBe('id,name\n1,Terry Pratchett\n2,Ursula K. Le Guin\n')
   })
 
-  it('explain', async () => {
+  it('explain', async (ctx) => {
+    if (!since('0.3.0')) return ctx.skip() // the Accept header postgrest-js sends is accepted from 0.3.0
     const { data, error } = await anon.from('books').select('title').eq('id', 1).explain()
     expect(error).toBeNull()
     expect(String(data)).toContain('BOOKS')
@@ -276,7 +290,8 @@ describe('writes', () => {
 })
 
 describe('files', () => {
-  it('downloads a BLOB as its bytes', async () => {
+  it('downloads a BLOB as its bytes', async (ctx) => {
+    if (!since('0.3.0')) return ctx.skip() // raw media types are new in 0.3.0
     const { data, error, status } = await anon.file(anon.from('covers').select('image').eq('book_id', 1), 'image/png')
     expect(error).toBeNull()
     expect(status).toBe(200)
@@ -285,7 +300,8 @@ describe('files', () => {
     expect(Array.from(bytes.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47])
   })
 
-  it('downloads text, and reports shape errors', async () => {
+  it('downloads text, and reports shape errors', async (ctx) => {
+    if (!since('0.3.0')) return ctx.skip()
     const { data } = await anon.file(anon.from('books').select('title').eq('id', 1), 'text/plain')
     expect(data).toBe('Guards! Guards!')
     const { error } = await anon.file(anon.from('books').select('title'), 'text/plain')
