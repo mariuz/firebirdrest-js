@@ -118,10 +118,11 @@ npm version 0.1.0        # updates package.json and creates the v0.1.0 tag
 git push --follow-tags
 ```
 
-One-time setup: create an npm access token (npmjs.com → Access Tokens → Generate New Token →
-Granular, with publish rights on `firebirdrest-js`, bypassing 2FA for automation) and add it to
-the repository as the `NPM_TOKEN` secret (Settings → Secrets and variables → Actions). The
-package is published with provenance, so npm shows the source commit and workflow.
+One-time setup, after the first manual `npm publish`: on npmjs.com open the package →
+Settings → *Trusted publisher* → GitHub Actions, with repository `mariuz/firebirdrest-js` and
+workflow `release.yml`. The workflow then publishes with a short-lived OIDC token, no secret
+needed, and with provenance, so npm shows the source commit and workflow. (An `NPM_TOKEN`
+repository secret works as well, but npm is phasing out tokens that bypass 2FA.)
 
 ## License
 
