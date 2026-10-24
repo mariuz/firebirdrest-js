@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-24
+
+### Added
+- The compatibility suite covers FirebirdREST 0.4.0's batched inserts: 250 rows with mixed
+  column sets in one `insert()`, with every row's representation returned.
+
+## [0.1.2] - 2026-10-23
+
 ### Fixed
 - `package.json` is exported, so tools can read the installed version.
 

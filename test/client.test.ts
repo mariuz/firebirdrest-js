@@ -255,6 +255,21 @@ describe('writes', () => {
     expect(updated).toEqual([{ name: 'Bulk One' }, { name: 'Bulk Two' }])
   })
 
+  writes('bulk insert of 250 rows with mixed columns', async (ctx) => {
+    if (!since('0.4.0')) return ctx.skip() // 0.4.0 inserts rows in batches; every key still comes back
+    const rows = Array.from({ length: 250 }, (_, i) =>
+      i % 2 ? { name: `Many ${i}`, country: 'M' } : { name: `Many ${i}` },
+    )
+    const { data, error, status } = await user!.from('authors').insert(rows).select('id, name').order('id')
+    expect(error).toBeNull()
+    expect(status).toBe(201)
+    expect(data).toHaveLength(250)
+    expect(data![249].name).toBe('Many 249')
+    created.push(...data!.map((r: any) => r.id))
+    const { count } = await user!.from('authors').select('*', { count: 'exact', head: true }).eq('country', 'M')
+    expect(count).toBe(125)
+  })
+
   writes('upsert', async () => {
     const { data, error } = await user!
       .from('tags')
