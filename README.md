@@ -105,8 +105,9 @@ FIREBIRDREST_URL=http://localhost:3000 \
 FIREBIRDREST_JWT_SECRET=reallyreallyreallyreallyverysafe1234 npm test
 ```
 
-Without `FIREBIRDREST_JWT_SECRET` the write tests are skipped. CI starts Firebird and
-FirebirdREST in Docker (see `.github/workflows/ci.yml`).
+Without `FIREBIRDREST_JWT_SECRET` the write tests are skipped. CI starts Firebird 3, 5 and 6
+(with `db-schemas` and the Firebird 6 schema example) and FirebirdREST in Docker, both the
+released image and a build of its `main` branch (see `.github/workflows/ci.yml`).
 
 ## Releasing
 

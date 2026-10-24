@@ -332,9 +332,35 @@ describe('client options', () => {
     expect(data?.added_at).toBeTruthy()
   })
 
-  it('schema selection is refused before Firebird 6', async () => {
-    const { error } = await anon.schema('inventory').from('warehouses').select('*')
-    // FBRST106: the schema isn't exposed, or the server has no schemas
-    expect(error?.code).toBe('FBRST106')
+  it('schema selection: Firebird 6 with db-schemas, or refused', async (ctx) => {
+    const { data, error } = await anon.schema('inventory').from('warehouses').select('name').order('id')
+    if (error) {
+      // FBRST106: the schema isn't exposed, or the server has no schemas (Firebird 3-5)
+      expect(error.code).toBe('FBRST106')
+      return ctx.skip()
+    }
+    expect(data).toEqual([{ name: 'Bucharest' }, { name: 'Cluj' }])
+    // the inventory schema has its own books table
+    const inv = createClient(url, null, { schema: 'inventory' })
+    const { data: books } = await inv.from('books').select('sku, title')
+    expect(books).toEqual([{ sku: 'SKU-1', title: 'Guards! Guards! (paperback)' }])
+    // a routine of the schema
+    const { data: low } = await inv.rpc('low_stock', { below: 5 }, { get: true })
+    expect(low).toEqual([
+      { warehouse: 'Bucharest', book_id: 2, qty: 3 },
+      { warehouse: 'Cluj', book_id: 1, qty: 0 },
+    ])
+    if (!since('0.4.0')) return // relationships across schemas are new in 0.4.0
+    const { data: stock, error: serr } = await inv.from('stock').select('qty, books(title)').order('id')
+    expect(serr).toBeNull()
+    expect(stock).toEqual([
+      { qty: 12, books: { title: 'Guards! Guards!' } },
+      { qty: 3, books: { title: 'Small Gods' } },
+      { qty: 0, books: { title: 'Guards! Guards!' } },
+    ])
+    const { data: back } = await anon.from('books').select('title, stock(qty, warehouses(name))').eq('id', 1)
+    expect(back).toEqual([
+      { title: 'Guards! Guards!', stock: [{ qty: 12, warehouses: { name: 'Bucharest' } }, { qty: 0, warehouses: { name: 'Cluj' } }] },
+    ])
   })
 })

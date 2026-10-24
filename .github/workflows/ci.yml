@@ -17,12 +17,25 @@ jobs:
       matrix:
         firebird: ["3", "5"]
         firebirdrest: ["latest", "main"] # the released image, and a build of FirebirdREST's main branch
+        include:
+          # Firebird 6 (snapshot, until the release): SQL schemas, so the schema()
+          # tests run instead of skipping. The database is UTF8 because the snapshot
+          # truncates CHARACTER SET NONE columns for UTF8 clients.
+          - firebird: 6-snapshot
+            firebirdrest: latest
+            charset: UTF8
+            schemas: "public, inventory"
+          - firebird: 6-snapshot
+            firebirdrest: main
+            charset: UTF8
+            schemas: "public, inventory"
     services:
       firebird:
         image: firebirdsql/firebird:${{ matrix.firebird }}
         env:
           FIREBIRD_ROOT_PASSWORD: masterkey
           FIREBIRD_DATABASE: test.fdb
+          FIREBIRD_DATABASE_DEFAULT_CHARSET: ${{ matrix.charset }}
         ports:
           - 3050:3050
     steps:
@@ -42,6 +55,13 @@ jobs:
           docker cp bookstore.sql ${{ job.services.firebird.id }}:/tmp/bookstore.sql
           docker exec ${{ job.services.firebird.id }} /opt/firebird/bin/isql \
             -user SYSDBA -password masterkey localhost:/var/lib/firebird/data/test.fdb -i /tmp/bookstore.sql
+      - name: Add the Firebird 6 schema example
+        if: matrix.schemas != ''
+        run: |
+          curl -sSfL -o bookstore-fb6.sql https://raw.githubusercontent.com/mariuz/firebirdrest/main/examples/bookstore-fb6.sql
+          docker cp bookstore-fb6.sql ${{ job.services.firebird.id }}:/tmp/bookstore-fb6.sql
+          docker exec ${{ job.services.firebird.id }} /opt/firebird/bin/isql \
+            -user SYSDBA -password masterkey localhost:/var/lib/firebird/data/test.fdb -i /tmp/bookstore-fb6.sql
       - name: Build FirebirdREST from main
         if: matrix.firebirdrest == 'main'
         run: docker build -t ghcr.io/mariuz/firebirdrest:main https://github.com/mariuz/firebirdrest.git#main
@@ -52,6 +72,7 @@ jobs:
             -e FBREST_DB_ANON_ROLE=web_anon \
             -e FBREST_JWT_SECRET=reallyreallyreallyreallyverysafe1234 \
             -e FBREST_DB_PLAN_ENABLED=true \
+            ${{ matrix.schemas && format('-e FBREST_DB_SCHEMAS={0}', toJSON(matrix.schemas)) || '' }} \
             ghcr.io/mariuz/firebirdrest:${{ matrix.firebirdrest }}
           for i in $(seq 1 30); do
             curl -sf localhost:3000/ > /dev/null && break

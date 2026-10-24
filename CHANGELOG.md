@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+- CI runs on Firebird 6 (snapshot) with `db-schemas`, so the `schema()` tests run there: the
+  schema's own tables and routines, and relationships across schemas with FirebirdREST 0.4.0.
+
 ## [0.1.3] - 2026-10-24
 
 ### Added
