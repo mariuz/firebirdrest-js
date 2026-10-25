@@ -122,8 +122,7 @@ git push --follow-tags
 One-time setup, after the first manual `npm publish`: on npmjs.com open the package →
 Settings → *Trusted publisher* → GitHub Actions, with repository `mariuz/firebirdrest-js` and
 workflow `release.yml`. The workflow then publishes with a short-lived OIDC token, no secret
-needed, and with provenance, so npm shows the source commit and workflow. (An `NPM_TOKEN`
-repository secret works as well, but npm is phasing out tokens that bypass 2FA.)
+needed, and with provenance, so npm shows the source commit and workflow.
 
 ## License
 

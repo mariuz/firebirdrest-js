@@ -2,8 +2,8 @@ name: Release
 
 # Publishes the package to npm when a version tag is pushed (v0.1.0), after
 # the compatibility suite passes. The version in package.json must match the
-# tag. Authenticates with npm trusted publishing (OIDC) when the package has
-# this workflow as a trusted publisher, else with the NPM_TOKEN secret (see
+# tag. Authenticates with npm trusted publishing (OIDC): the package lists this
+# workflow as a trusted publisher on npmjs.com, so no token is needed (see
 # README, "Releasing").
 on:
   push:
@@ -39,5 +39,3 @@ jobs:
           fi
       - run: npm run build
       - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
