@@ -324,6 +324,43 @@ describe('files', () => {
   })
 })
 
+describe('events', () => {
+  writes('a channel hears a posted event, and stops on unsubscribe', async (ctx) => {
+    if (!since('0.5.0')) return ctx.skip() // GET /events is new in 0.5.0
+    const statuses: string[] = []
+    const got: Promise<any> = new Promise((resolve) => {
+      user!
+        .channel('stock_changed', 'order_placed')
+        .on('stock_changed', (e) => resolve(e))
+        .subscribe((s) => statuses.push(s))
+    })
+    // the server may not have subscribed to the database yet: post until the event arrives
+    let event: any = null
+    for (let i = 0; i < 20 && !event; i++) {
+      const { error } = await user!.rpc('notify', { name: 'stock_changed' })
+      expect(error).toBeNull()
+      event = await Promise.race([got, new Promise((r) => setTimeout(() => r(null), 500))])
+    }
+    expect(event).toMatchObject({ name: 'stock_changed' })
+    expect(event.count).toBeGreaterThanOrEqual(1)
+    expect(statuses[0]).toBe('open')
+  })
+
+  it('a channel for an event that is not exposed reports the error and stops', async (ctx) => {
+    if (!since('0.5.0')) return ctx.skip()
+    const statuses: string[] = []
+    const err = await new Promise<Error | undefined>((resolve) => {
+      anon.channel('no_such_event').subscribe((s, e) => {
+        statuses.push(s)
+        if (s === 'error') resolve(e)
+      })
+    })
+    expect((err as any)?.code).toMatch(/FBRST13[56]/)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(statuses).toEqual(['error', 'closed'])
+  })
+})
+
 describe('client options', () => {
   it('time zone preference', async () => {
     const zoned = createClient(url, null, { timezone: 'Asia/Tokyo' })

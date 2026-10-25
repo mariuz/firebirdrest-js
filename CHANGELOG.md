@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- `client.channel(...events)` with `on()`, `subscribe()` and `unsubscribe()`: Firebird events
+  streamed by FirebirdREST 0.5.0's `GET /events/<names>`, with automatic reconnection.
 - CI runs on Firebird 6 (snapshot) with `db-schemas`, so the `schema()` tests run there: the
   schema's own tables and routines, and relationships across schemas with FirebirdREST 0.4.0.
 

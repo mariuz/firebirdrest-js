@@ -72,6 +72,7 @@ jobs:
             -e FBREST_DB_ANON_ROLE=web_anon \
             -e FBREST_JWT_SECRET=reallyreallyreallyreallyverysafe1234 \
             -e FBREST_DB_PLAN_ENABLED=true \
+            -e FBREST_DB_EVENTS=order_placed,stock_changed -e FBREST_DB_EVENTS_ROLES=web_user \
             ${{ matrix.schemas && format('-e FBREST_DB_SCHEMAS={0}', toJSON(matrix.schemas)) || '' }} \
             ghcr.io/mariuz/firebirdrest:${{ matrix.firebirdrest }}
           for i in $(seq 1 30); do

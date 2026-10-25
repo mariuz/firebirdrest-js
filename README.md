@@ -43,6 +43,7 @@ Everything postgrest-js offers that FirebirdREST implements, checked by the
 | Writes | `insert` (one or many), `upsert` with `onConflict`, `update`, `delete`, `.select()` for the representation |
 | RPC | `rpc(name, args, { get: true })` for functions, selectable procedures with `.select().order()...`, package routines (`'catalog.book_count'`) |
 | Schemas | `client.schema('inventory')` on Firebird 6 with `db-schemas` |
+| Events | `client.channel('order_placed').on(...).subscribe()` streams Firebird `POST_EVENT`s (FirebirdREST 0.5.0 with `db-events`) |
 | Errors | `{ code, message, details, hint }` as in supabase-js; `code` is an `FBRST...` code or Firebird's SQLSTATE |
 
 Not available, because Firebird has no such types: `contains`, `containedBy`, `overlaps`,
@@ -65,6 +66,28 @@ await similar(q, 'title', '(A|The) %')      // title SIMILAR TO '(A|The) %'
 await client.from('books').select('title').containing('title', 'gods') // JavaScript
 await client.from('books').select('title').filter('title', 'containing', 'gods') // either
 ```
+
+## Realtime events
+
+FirebirdREST streams Firebird events (`POST_EVENT 'order_placed'` in a trigger or procedure) to
+clients as Server-Sent Events, for the names listed in its `db-events` setting. A channel listens
+for one or more of them:
+
+```ts
+const channel = client
+  .channel('order_placed', 'stock_changed')
+  .on('order_placed', (e) => refreshOrders()) // e.name, e.count (posts merged into this notification)
+  .on('*', (e) => console.log('event', e.name))
+  .subscribe((status, error) => console.log(status, error)) // 'open' | 'error' | 'closed'
+
+channel.unsubscribe()
+```
+
+An event says that something happened, not what: read the data through the API as usual. The
+channel reconnects by itself while the server is unreachable (1 s to 30 s between attempts) and
+stops when the server refuses the subscription (an event that isn't exposed, a role that may not
+listen). It uses `fetch` with a streaming body, so it works in browsers and in Node 18+ without
+`EventSource`, and sends the client's `Authorization` header.
 
 ## Files and single values
 
