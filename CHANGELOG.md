@@ -2,11 +2,18 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-26
+
 ### Added
 - `client.channel(...events)` with `on()`, `subscribe()` and `unsubscribe()`: Firebird events
-  streamed by FirebirdREST 0.5.0's `GET /events/<names>`, with automatic reconnection.
+  streamed by FirebirdREST 0.5.0's `GET /events/<names>`, with automatic reconnection. Exports
+  `EventChannel` and the `FirebirdEvent`, `ChannelStatus`, `EventHandler` and `StatusHandler`
+  types.
 - CI runs on Firebird 6 (snapshot) with `db-schemas`, so the `schema()` tests run there: the
   schema's own tables and routines, and relationships across schemas with FirebirdREST 0.4.0.
+
+### Changed
+- Releases publish with npm trusted publishing only; the `NPM_TOKEN` fallback is gone.
 
 ## [0.1.3] - 2026-10-24
 
