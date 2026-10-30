@@ -43,6 +43,7 @@ Everything postgrest-js offers that FirebirdREST implements, checked by the
 | Writes | `insert` (one or many), `upsert` with `onConflict`, `update`, `delete`, `.select()` for the representation |
 | RPC | `rpc(name, args, { get: true })` for functions, selectable procedures with `.select().order()...`, package routines (`'catalog.book_count'`) |
 | Schemas | `client.schema('inventory')` on Firebird 6 with `db-schemas` |
+| Types | `npx firebirdrest-js gen types` writes the `Database` type for `createClient<Database>()` ([typed queries](#typed-queries)) |
 | Events | `client.channel('order_placed').on(...).subscribe()` streams Firebird `POST_EVENT`s (FirebirdREST 0.5.0 with `db-events`) |
 | Errors | `{ code, message, details, hint }` as in supabase-js; `code` is an `FBRST...` code or Firebird's SQLSTATE |
 
@@ -66,6 +67,52 @@ await similar(q, 'title', '(A|The) %')      // title SIMILAR TO '(A|The) %'
 await client.from('books').select('title').containing('title', 'gods') // JavaScript
 await client.from('books').select('title').filter('title', 'containing', 'gods') // either
 ```
+
+## Typed queries
+
+`gen types` writes the TypeScript types of your API, the way `supabase gen types` does, so
+`from()`, `select()`, `insert()` and `rpc()` are checked by the compiler and their results typed:
+
+```sh
+npx firebirdrest-js gen types --url http://localhost:3000 --token "$JWT" --output src/database.types.ts
+```
+
+```ts
+import { createClient } from 'firebirdrest-js'
+import type { Database, Tables } from './database.types'
+
+const client = createClient<Database>('http://localhost:3000', token)
+
+const { data } = await client.from('books').select('title, authors(name), tags(name)')
+// data: { title: string; authors: { name: string } | null; tags: { name: string }[] }[] | null
+
+await client.from('books').insert({ title: 'Mort' }) // a missing NOT NULL column is a compile error
+await client.rpc('add_vat', { amount: 100 })          // data: number | null
+type Author = Tables<'authors'>
+```
+
+What it reads from the server's OpenAPI document (FirebirdREST 0.7 or later for all of it):
+
+| | |
+|---|---|
+| tables and views | `Row`, `Insert` (columns without a default required), `Update`; views typed apart |
+| foreign keys | embedding in both directions, one-to-one, many-to-many through junction tables, composite keys |
+| computed fields | typed when selected by name, left out of `select('*')` as the server does |
+| functions and procedures | arguments (required unless they have a default) and results: a value, rows, or an object |
+| Firebird 6 schemas | one entry per exposed schema, for `client.schema('inventory')` |
+
+- The document lists what the token's role may use. Generate with a role that sees everything
+  the application uses, or run the server with `openapi-mode = "ignore-privileges"` in development.
+- A foreign key into another schema is embeddable but not typed: postgrest-js types relationships
+  within one schema. `gen types` lists such keys on standard error.
+- Computed relationships (procedures embedded as resources) are not typed.
+- Against a server before 0.7, views, composite keys and argument defaults are not known: views
+  are typed as tables and every argument is optional.
+- `--schema public,inventory` limits the schemas; `FIREBIRDREST_URL` and `FIREBIRDREST_TOKEN`
+  can replace `--url` and `--token`. The generator is also a function:
+  `import { generateTypes } from 'firebirdrest-js/gen'`.
+
+Regenerate after changing the database.
 
 ## Realtime events
 

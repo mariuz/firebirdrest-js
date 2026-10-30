@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- `firebirdrest-js gen types`: writes the TypeScript `Database` type of a FirebirdREST API from
+  its OpenAPI document, for typed `from()`, `select()`, `insert()`, `update()` and `rpc()`:
+  tables, views, foreign keys (one-to-one, composite, many-to-many), computed fields, routines
+  with required and default arguments, and every Firebird 6 schema. Needs FirebirdREST 0.7 for
+  views, composite keys and argument defaults; older servers get a reduced version. Also
+  available as a function, `generateTypes` from `firebirdrest-js/gen`.
+
 ## [0.2.0] - 2026-10-26
 
 ### Added

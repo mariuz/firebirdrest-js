@@ -81,8 +81,20 @@ jobs:
           done
           curl -sf 'localhost:3000/books?select=id&limit=1'
       - run: npm ci
-      - run: npm run typecheck
       - run: npm run build
+      - name: Generate types from the server
+        # gen types needs the x-firebirdrest extensions of FirebirdREST 0.7+; the
+        # released image is checked against the committed test/types/database.types.ts
+        if: matrix.firebirdrest == 'main'
+        run: |
+          TOKEN=$(node -e '
+            const c = require("crypto"), b = (o) => Buffer.from(JSON.stringify(o)).toString("base64url")
+            const h = b({ alg: "HS256", typ: "JWT" }), p = b({ role: "web_user" })
+            const s = c.createHmac("sha256", "reallyreallyreallyreallyverysafe1234").update(h + "." + p).digest("base64url")
+            console.log(h + "." + p + "." + s)')
+          node dist/cli.js gen types --url http://localhost:3000 --token "$TOKEN" --output test/types/database.types.ts
+          git diff --stat test/types/database.types.ts
+      - run: npm run typecheck
       - name: Test
         env:
           FIREBIRDREST_URL: http://localhost:3000
