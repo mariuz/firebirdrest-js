@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-30
+
 ### Added
 - `firebirdrest-js gen types`: writes the TypeScript `Database` type of a FirebirdREST API from
   its OpenAPI document, for typed `from()`, `select()`, `insert()`, `update()` and `rpc()`:
