@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- Event channels resume: on reconnect the channel sends the last notification's id as
+  `Last-Event-ID`, and FirebirdREST 0.8 replays what was missed. `channel.onReset(reason => ...)`
+  is called when the server can't know what was missed (a restart, another instance, a long
+  absence), and `channel.lastEventId` exposes the last id.
+
 ## [0.3.0] - 2026-10-30
 
 ### Added

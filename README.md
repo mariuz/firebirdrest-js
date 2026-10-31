@@ -125,13 +125,16 @@ const channel = client
   .channel('order_placed', 'stock_changed')
   .on('order_placed', (e) => refreshOrders()) // e.name, e.count (posts merged into this notification)
   .on('*', (e) => console.log('event', e.name))
+  .onReset((reason) => reloadOrders()) // notifications may have been missed: read again
   .subscribe((status, error) => console.log(status, error)) // 'open' | 'error' | 'closed'
 
 channel.unsubscribe()
 ```
 
 An event says that something happened, not what: read the data through the API as usual. The
-channel reconnects by itself while the server is unreachable (1 s to 30 s between attempts) and
+channel reconnects by itself while the server is unreachable (1 s to 30 s between attempts),
+sending the last notification's id so FirebirdREST 0.8+ replays what was missed; when the server
+can't know (it restarted, or the client was away too long) `onReset` runs instead. It
 stops when the server refuses the subscription (an event that isn't exposed, a role that may not
 listen). It uses `fetch` with a streaming body, so it works in browsers and in Node 18+ without
 `EventSource`, and sends the client's `Authorization` header.

@@ -137,6 +137,8 @@ export interface FirebirdEvent {
 export type ChannelStatus = 'open' | 'closed' | 'error'
 export type EventHandler = (event: FirebirdEvent) => void
 export type StatusHandler = (status: ChannelStatus, error?: Error) => void
+/** Called with the server's reason when notifications may have been missed. */
+export type ResetHandler = (reason: string) => void
 
 /**
  * A subscription to Firebird events, streamed by `GET /events/<names>` as
@@ -151,11 +153,17 @@ export type StatusHandler = (status: ChannelStatus, error?: Error) => void
  * ```
  *
  * While the server is unreachable the channel reconnects with a growing
- * delay (1 s to 30 s). It stops by itself when the server refuses the
- * subscription (401, 403, 404): reconnecting would not help.
+ * delay (1 s to 30 s), sending the id of the last notification it saw so
+ * the server replays what was missed (FirebirdREST 0.8+). When the server
+ * can't know what was missed (it restarted, or the client was away too
+ * long) the `onReset` handlers are called: reload what you show. It stops
+ * by itself when the server refuses the subscription (401, 403, 404):
+ * reconnecting would not help.
  */
 export class EventChannel {
   private handlers = new Map<string, EventHandler[]>()
+  private resetHandlers: ResetHandler[] = []
+  private lastId: string | undefined
   private controller: AbortController | null = null
   private running = false
   private status: ChannelStatus = 'closed'
@@ -173,6 +181,21 @@ export class EventChannel {
     list.push(handler)
     this.handlers.set(event, list)
     return this
+  }
+
+  /**
+   * Registers a handler for resets: the server says notifications may have
+   * been missed (it restarted, the client was away too long, the stream fell
+   * behind), so whatever the events keep up to date should be read again.
+   */
+  onReset(handler: ResetHandler): this {
+    this.resetHandlers.push(handler)
+    return this
+  }
+
+  /** The id of the last notification received, sent as Last-Event-ID on reconnect. */
+  get lastEventId(): string | undefined {
+    return this.lastId
   }
 
   /** Opens the stream. The callback hears `open`, `error` (with the cause) and `closed`. */
@@ -211,8 +234,10 @@ export class EventChannel {
     while (this.running) {
       this.controller = new AbortController()
       try {
+        const headers = new Headers(this.headers)
+        if (this.lastId) headers.set('Last-Event-ID', this.lastId)
         const res = await this.fetchFn(this.url, {
-          headers: this.headers,
+          headers,
           signal: this.controller.signal,
         })
         if (!res.ok || !res.body) {
@@ -255,12 +280,21 @@ export class EventChannel {
           message = JSON.parse(data).message ?? data
         } catch {}
         this.setStatus('error', new Error(message))
+      } else if (event === 'reset') {
+        let reason = data
+        try {
+          reason = JSON.parse(data).reason ?? data
+        } catch {}
+        for (const h of this.resetHandlers) h(reason)
       } else if (event && data) {
         let parsed: FirebirdEvent | null = null
         try {
           parsed = JSON.parse(data)
         } catch {}
-        if (parsed) this.dispatch({ ...parsed, id })
+        if (parsed) {
+          if (id) this.lastId = id
+          this.dispatch({ ...parsed, id })
+        }
       }
       event = ''
       data = ''
